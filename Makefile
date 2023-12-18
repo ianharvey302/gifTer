@@ -7,10 +7,6 @@ OBJECTS = asciiAnimate.o animator.o animation.o gifReader.o
 
 program: $(OBJECTS)
 	$(CXX) $(OBJECTS) -o asciiAnimate
-	make objectless
-
-object: $(OBJECTS)
-	$(CXX) $(OBJECTS) -o asciiAnimate
 
 asciiAnimate.o: asciiAnimate.cpp
 
@@ -23,7 +19,3 @@ gifReader.o: gifReader.cpp gifReader.h color.h
 .PHONY: clean
 clean:
 	-rm -f *.o *~ asciiAnimate
-
-.PHONY: objectless
-objectless:
-	-rm -f *.o *~

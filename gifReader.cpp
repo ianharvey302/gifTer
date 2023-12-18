@@ -86,10 +86,8 @@ vector<string*> gifReader::generateFrames() {
   // Header Block reading
   char gifSig[3];
   file->read(gifSig, sizeof gifSig);
-  //print(gifSig, 3);
   char version[3];
   file->read(version, sizeof version);
-  //print(version, 3);
 
   // Logical Screen Descriptor Reading
   uint canvasWidth = readLittleEndian(2);
@@ -98,14 +96,12 @@ vector<string*> gifReader::generateFrames() {
   bool globalColorTableFlag = LSDPacked >> 7;
   uint globalColorTableResolution = pow(2, ((LSDPacked & 0x70) >> 4) + 1);
   uint globalColorTableSize = pow(2, (LSDPacked & 0x7) + 1);
-  //printf("%x\n", (LSDPacked & 0xFF));
-  //cout << globalColorTableFlag << " " << globalColorTableResolution << " " << globalColorTableSize << endl;
   uint backgroundColorIndex = readOneByteInt();
-  //cout << backgroundColorIndex << endl;
   skipBytes(1);
 
   // Global Color Table
   vector<color> GCT(globalColorTableSize);
+  string colorArrayDebug;
   if(globalColorTableFlag) {
     for(int i = 0; i < globalColorTableSize; i++) {
       char colorBytes[3];
@@ -113,13 +109,14 @@ vector<string*> gifReader::generateFrames() {
       GCT[i].r = colorBytes[0] & 0xFF;
       GCT[i].g = colorBytes[1] & 0xFF;
       GCT[i].b = colorBytes[2] & 0xFF;
-      cout << GCT[i].r << " " << GCT[i].g << " " << GCT[i].b << endl;
+      colorArrayDebug += colorToANSI(&(GCT[i]));
     }
   }
+  colorArrayDebug += "\033[0m";
 
   // We begin the looping here
   vector<string*> toReturn;
-  //while((file->peek() & 0xFF) != 0x3B) {
+  while((file->peek() & 0xFF) != 0x3B) {
 
     while((file->peek() & 0xFF) == 0x21) {
       // Is an extension
@@ -136,7 +133,6 @@ vector<string*> gifReader::generateFrames() {
 	  graphicControlExtension->delayTime = readLittleEndian(2);
 	  graphicControlExtension->transparentColorIndex = readOneByteInt();
 	  killIfNotValue(0x00);
-	  //graphicControlExtension->print();
 	  break;
         }
         case 0xFF: {
@@ -169,9 +165,9 @@ vector<string*> gifReader::generateFrames() {
     uint IMGPacked = readOneByteInt();
     bool localColorTableFlag = IMGPacked >> 7;
     uint localColorTableSize = pow(2, (IMGPacked & 0x7) + 1);
-    //cout << localColorTableFlag << " " << localColorTableSize << endl;
 
     vector<color> LCT(localColorTableSize);
+    string localColorArrayDebug = colorArrayDebug;
     if(localColorTableFlag) {
       for(int i = 0; i < localColorTableSize; i++) {
 	char colorBytes[3];
@@ -179,15 +175,15 @@ vector<string*> gifReader::generateFrames() {
 	LCT[i].r = colorBytes[0] & 0xFF;
 	LCT[i].g = colorBytes[1] & 0xFF;
 	LCT[i].b = colorBytes[2] & 0xFF;
-	//cout << LCT[i].r << " " << LCT[i].g << " " << LCT[i].b << endl;
       }
     }
+    cout << localColorArrayDebug << endl;
     
     // Preparing Canvas
     int pixels[canvasHeight][canvasWidth];
     for(int i = 0; i < canvasHeight; i++) {
       for(int j = 0; j < canvasWidth; j++) {
-	pixels[i][j] = -1;
+	pixels[i][j] = graphicControlExtension->transparentColorIndex;
       }
     }
     
@@ -199,7 +195,7 @@ vector<string*> gifReader::generateFrames() {
     for(int i = 0; i < currentCodeSize; i++) {
       mask = (mask << 1) + 1;
     }
-    //cout << "LZW: " << LZW << endl << endl;
+    
     vector<int> codeStream;
     uint codeBuffer = 0;
     uint currentOffset = 0;
@@ -238,9 +234,11 @@ vector<string*> gifReader::generateFrames() {
       if(code < codeTable->size()) {
         if((*codeTable)[code] == "EOI")
 	  break;
+	if((*codeTable)[code] == "Clear") {
+	  //TODO
+	}
 	insertIntoIndexStream((*codeTable)[code], &indexStream);
 	char K = (*codeTable)[code][0];
-	//cout << (codeStream[i-1]) << endl;
 	codeTable->push_back((*codeTable)[codeM1] + K);
       }
       else {
@@ -249,16 +247,23 @@ vector<string*> gifReader::generateFrames() {
 	codeTable->push_back((*codeTable)[codeM1] + K);
       }
     }
-    cout << indexStream.size() << endl;
-    cout << codeStream.size() << endl;
     delete codeTable;
+    
     for(int i = imageTop; i < imageHeight; i++) {
       for(int j = imageLeft; j < imageWidth; j++) {
-	
+	pixels[i][j] = indexStream[i * imageWidth + j];
       }
     }
+
+    for(int i = 0; i < canvasHeight; i++) {
+      for(int j = 0; j < canvasWidth; j++) {
+	//cout << pixels[i][j] << " ";
+      }
+      //cout << endl;
+    }
+    
     skipBytes(1);
-    //}
+  }
   
   vector<string*> nothing;
   return nothing;
