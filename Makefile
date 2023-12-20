@@ -2,15 +2,13 @@
 #Ascii Animate Makefile
 
 CXX = clang++ $(CXXFLAGS)
-CXXFLAGS = -O2 -fsanitize=address
-OBJECTS = asciiAnimate.o animator.o animation.o gifReader.o
+CXXFLAGS = -O2 -Wall -fsanitize=address
+OBJECTS = asciiAnimate.o animation.o gifReader.o
 
 program: $(OBJECTS)
 	$(CXX) $(OBJECTS) -o asciiAnimate
 
 asciiAnimate.o: asciiAnimate.cpp
-
-animator.o: animator.cpp animator.h
 
 animation.o: animation.cpp animation.h
 

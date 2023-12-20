@@ -7,17 +7,20 @@
 #include <iostream>
 #include <string>
 #include <vector>
-using namespace std;
+#include <unistd.h>
 
 class animation {
  public:
-  animation(vector<string*> frames);
+  animation(std::vector<std::string*> framesToCopy, std::vector<uint> frameDurations, uint canvasHeight);
   ~animation();
   int length();
-  string getFrame(int frameNumber);
+  std::string getFrame(int frameNumber);
+  void play();
   
  private:
-  vector<string*> frames;
+  std::vector<std::string*> frames;
+  std::vector<int> durations;
+  uint height;
   
 };
 

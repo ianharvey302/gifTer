@@ -5,25 +5,25 @@
 #define COLOR_H
 
 #include <unordered_map>
-using namespace std;
+#include <string>
 
 struct color {
   uint r, g, b;
   
-  string hexString() {
+  std::string hexString() {
     char rChars[3];
     sprintf(&(rChars[0]), "%x", r >> 4);
     sprintf(&(rChars[1]), "%x", r & 0xF);
     char gChars[3];
     sprintf(&(gChars[0]), "%x", g >> 4);
     sprintf(&(gChars[1]), "%x", g & 0xF);
-    string rStr = (string) rChars;
+    std::string rStr = (std::string) rChars;
     char bChars[3];
     sprintf(&(bChars[0]), "%x", b >> 4);
     sprintf(&(bChars[1]), "%x", b & 0xF);
     
     
-    return (string) rChars + (string) gChars + (string) bChars;
+    return (std::string) rChars + (std::string) gChars + (std::string) bChars;
   }
 
   color operator-(color other) {
@@ -39,7 +39,7 @@ struct color {
 
 // I cannot believe that I manually set this
 // There was definitely a better way to do this too but this code isn't that serious
-unordered_map<string, tuple<string, color>> xtermANSI =
+std::unordered_map<std::string, std::tuple<std::string, color>> xtermANSI =
   {
     { "000000SYS", {"\033[38;5;0m█", { 0, 0, 0}} },
     { "800000SYS", {"\033[38;5;1m█", { 128, 0, 0}} },
@@ -299,23 +299,22 @@ unordered_map<string, tuple<string, color>> xtermANSI =
     { "eeeeee", {"\033[38;5;255m█", { 238, 238, 238}} }
   };
 
-string colorToANSI(color* c) {
-  string hexString = c->hexString();
+std::string colorToANSI(color* c) {
+  std::string hexString = c->hexString();
   if(xtermANSI.find(hexString) == xtermANSI.end()) {
     uint minDist = 0xFFFFFFFF;
-    uint index = 0;
-    string hexOverride;
+    std::string hexOverride;
     for(auto kvPair : xtermANSI) {
-      color diff = get<1>(kvPair.second) - *c;
+      color diff = std::get<1>(kvPair.second) - *c;
       int total = diff.r + diff.g + diff.b;
-      if(kvPair.first.find("SYS") == string::npos && total < minDist) {
+      if(kvPair.first.find("SYS") == std::string::npos && total < minDist) {
 	hexOverride = kvPair.first;
 	minDist = total;
       }
     }
     xtermANSI[hexString] = xtermANSI[hexOverride];
   }
-  return get<0>(xtermANSI[hexString]);
+  return std::get<0>(xtermANSI[hexString]);
 }
 
 #endif

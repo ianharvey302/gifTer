@@ -4,16 +4,10 @@
 #include "gifReader.h"
 #include "color.h"
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <fstream>
-#include <math.h>
-using namespace std;
 
 
 // Constructor initiating file variable
-gifReader::gifReader(ifstream* file) : file(file) {
+gifReader::gifReader(std::ifstream* file) : file(file) {
   littleEndianBytes = new char[4];
   graphicControlExtension = new GCE();
 }
@@ -22,6 +16,15 @@ gifReader::gifReader(ifstream* file) : file(file) {
 gifReader::~gifReader() {
   delete[] littleEndianBytes;
   delete graphicControlExtension;
+}
+
+// Get Methods
+std::vector<uint> gifReader::getFrameDurations() {
+  return frameDurations;
+}
+
+uint gifReader::getCanvasHeight() {
+  return canvasHeight;
 }
 
 // Jumps over unnecessary bytes
@@ -35,21 +38,26 @@ void gifReader::killIfNotValue(uint value) {
   char check[1];
   file->read(check, 1);
   if((check[0] & 0xFF) != value) {
-    cout << "Error reading '.gif' file. Unexpeced Value: " << (check[0] & 0xFF) << "\tShould Be: " << value << endl;
+    std::cout << "Error reading '.gif' file. Unexpeced Value: " << (check[0] & 0xFF) << "\tShould Be: " << value << std::endl;
     delete this;
     exit(5);
   }
 }
 
 // Takes the index string and puts it in the indexStream
-void gifReader::insertIntoIndexStream(string toInsert, vector<int>* indexStream) {
-  if(toInsert == "Clear") {
-    cout << toInsert << endl;
-  }
+void gifReader::insertIntoIndexStream(std::string toInsert, std::vector<int>* indexStream) {
+  std::string nextInt;
   for(int i = 0; i < toInsert.size(); i++) {
     // 48 is ASCII Zero
-    indexStream->push_back(toInsert[i] - 48);
+    if(toInsert[i] == ' ') {
+      indexStream->push_back(stoi(nextInt));
+      nextInt = "";
+    }
+    else {
+      nextInt += toInsert[i];
+    }
   }
+  indexStream->push_back(stoi(nextInt));
 }
 
 // Converts bytes in the byte array into actual array
@@ -59,7 +67,6 @@ uint gifReader::readLittleEndian(int byteAmount) {
     file->read(littleEndianBytes + i, 1);
     toReturn += (littleEndianBytes[i] & 0xFF) << (i * 4);
   }
-  //cout << toReturn << endl;
   littleEndianBytes[0] = 0;
   littleEndianBytes[1] = 0;
   littleEndianBytes[2] = 0;
@@ -76,13 +83,13 @@ uint gifReader::readOneByteInt() {
 
 void print(char* toPrint, int size) {
   for(int i = 0; i < size; i++) {
-    cout << toPrint[i];
+    std::cout << toPrint[i];
   }
-  cout << endl;
+  std::cout << std::endl;
 }
 
 // Does the heavy lifting here :)
-vector<string*> gifReader::generateFrames() {
+std::vector<std::string*> gifReader::generateFrames(uint pixelsPerPixel) {
   // Header Block reading
   char gifSig[3];
   file->read(gifSig, sizeof gifSig);
@@ -91,17 +98,16 @@ vector<string*> gifReader::generateFrames() {
 
   // Logical Screen Descriptor Reading
   uint canvasWidth = readLittleEndian(2);
-  uint canvasHeight = readLittleEndian(2);
+  canvasHeight = readLittleEndian(2);
+  pixelsPerPixel = std::min(std::min(canvasWidth,canvasHeight),pixelsPerPixel);
   uint LSDPacked = readOneByteInt();
   bool globalColorTableFlag = LSDPacked >> 7;
-  uint globalColorTableResolution = pow(2, ((LSDPacked & 0x70) >> 4) + 1);
-  uint globalColorTableSize = pow(2, (LSDPacked & 0x7) + 1);
+  uint globalColorTableSize = 2 << ((LSDPacked & 0x7));
   uint backgroundColorIndex = readOneByteInt();
   skipBytes(1);
 
   // Global Color Table
-  vector<color> GCT(globalColorTableSize);
-  string colorArrayDebug;
+  std::vector<color> GCT(globalColorTableSize);
   if(globalColorTableFlag) {
     for(int i = 0; i < globalColorTableSize; i++) {
       char colorBytes[3];
@@ -109,15 +115,18 @@ vector<string*> gifReader::generateFrames() {
       GCT[i].r = colorBytes[0] & 0xFF;
       GCT[i].g = colorBytes[1] & 0xFF;
       GCT[i].b = colorBytes[2] & 0xFF;
-      colorArrayDebug += colorToANSI(&(GCT[i]));
     }
   }
-  colorArrayDebug += "\033[0m";
 
   // We begin the looping here
-  vector<string*> toReturn;
+  std::vector<std::string*> frames;
+  int pixels[canvasHeight][canvasWidth];
+  for(int i = 0; i < canvasHeight; i++) {
+    for(int j = 0; j < canvasWidth; j++) {
+      pixels[i][j] = backgroundColorIndex;
+    }
+  }
   while((file->peek() & 0xFF) != 0x3B) {
-
     while((file->peek() & 0xFF) == 0x21) {
       // Is an extension
       killIfNotValue(0x21);
@@ -131,8 +140,34 @@ vector<string*> gifReader::generateFrames() {
 	  graphicControlExtension->userInputFlag = GCEPacked & 0x2;
 	  graphicControlExtension->transparentColorFlag = GCEPacked & 0x1;
 	  graphicControlExtension->delayTime = readLittleEndian(2);
+	  frameDurations.push_back(graphicControlExtension->delayTime);
 	  graphicControlExtension->transparentColorIndex = readOneByteInt();
 	  killIfNotValue(0x00);
+	  switch(graphicControlExtension->disposalMethod) {
+	    case 1: {
+	      // DoNothing
+	      break;
+	    }
+	    case 2: {
+	      for(int i = 0; i < canvasHeight; i++) {
+		for(int j = 0; j < canvasWidth; j++) {
+		  pixels[i][j] = backgroundColorIndex;
+		}
+	      }
+	      break;
+	    }
+	    case 3: {
+	      std::cout << "Error: This image uses a disposal method of 3 which is not yet supported by this program" << std::endl;
+	      exit(100);
+	      break;
+	    }
+	    default: {
+	      std::cout << "Error: Unknown disposal method" << std::endl;
+	      exit(100);
+	      break;
+	    }
+	    
+	  }
 	  break;
         }
         case 0xFF: {
@@ -149,7 +184,7 @@ vector<string*> gifReader::generateFrames() {
 	  break;
         }
         default: {
-	  cout << "Unknown extension table label found in '.gif': " << extensionLabel << endl;
+	  std::cout << "Unknown extension table label found in '.gif': " << extensionLabel << std::endl;
 	  delete this;
 	  exit(6);
         }
@@ -161,13 +196,19 @@ vector<string*> gifReader::generateFrames() {
     uint imageLeft = readLittleEndian(2);
     uint imageTop = readLittleEndian(2);
     uint imageWidth = readLittleEndian(2);
-    uint imageHeight = readLittleEndian(2);
+    // Variable is unused so commented out and bytes skipped for now...
+    //uint imageHeight = readLittleEndian(2);
+    skipBytes(2);
     uint IMGPacked = readOneByteInt();
     bool localColorTableFlag = IMGPacked >> 7;
-    uint localColorTableSize = pow(2, (IMGPacked & 0x7) + 1);
+    bool interlaceFlag = (IMGPacked >> 6) & 0x1;
+    if(interlaceFlag) {
+      std::cout << "Error: This image has an interlace flag and I am too lazy to figure out how it works :/" << std::endl;
+      exit(100);
+    }
+    uint localColorTableSize = 2 << ((IMGPacked & 0x7));
 
-    vector<color> LCT(localColorTableSize);
-    string localColorArrayDebug = colorArrayDebug;
+    std::vector<color> LCT(localColorTableSize);
     if(localColorTableFlag) {
       for(int i = 0; i < localColorTableSize; i++) {
 	char colorBytes[3];
@@ -177,94 +218,167 @@ vector<string*> gifReader::generateFrames() {
 	LCT[i].b = colorBytes[2] & 0xFF;
       }
     }
-    cout << localColorArrayDebug << endl;
-    
-    // Preparing Canvas
-    int pixels[canvasHeight][canvasWidth];
-    for(int i = 0; i < canvasHeight; i++) {
-      for(int j = 0; j < canvasWidth; j++) {
-	pixels[i][j] = graphicControlExtension->transparentColorIndex;
-      }
-    }
-    
+
     // Image Data
     uint LZW = readOneByteInt();
     uint currentCodeSize = LZW + 1;
-    uint nextTarget = pow(2, currentCodeSize) - 1;
+    uint codeCountTracker = (2 << (LZW - 1));
+    uint nextTarget = (2 << (currentCodeSize - 1)) - 1;
     uint mask = 0;
     for(int i = 0; i < currentCodeSize; i++) {
       mask = (mask << 1) + 1;
     }
-    
-    vector<int> codeStream;
     uint codeBuffer = 0;
+    uint currentCode;
     uint currentOffset = 0;
-    uint codeCountTracker = pow(2, LZW) - 1;
+    std::vector<int> indexStream;
+    std::vector<std::string> codeTable(2 << (LZW - 1));
+    for(int i = 0; i < codeTable.size(); i++) {
+      codeTable[i] = std::to_string(i);
+    }
+    codeTable.push_back("Clear");
+    codeTable.push_back("EOI");
+    bool first = true;
+    std::string code;
+    std::string oldCode;
     while((file->peek() & 0xFF) != 0x00) {
       uint subBlockSize = readOneByteInt();
       for(int i = 0; i < subBlockSize; i++) {
 	codeBuffer += readOneByteInt() << currentOffset;
 	currentOffset += 8;
-	while(currentOffset > currentCodeSize) {
-	  uint currentCode = codeBuffer & mask;
-	  codeCountTracker++;
-	  codeStream.push_back(currentCode);
+	if(first) {
+	  while(currentOffset < currentCodeSize) {
+	    i++;
+	    codeBuffer += readOneByteInt() << currentOffset;
+	    currentOffset += 8;
+	  }
 	  codeBuffer = codeBuffer >> currentCodeSize;
 	  currentOffset -= currentCodeSize;
+	  while(currentOffset < currentCodeSize) {
+	    i++;
+	    codeBuffer += readOneByteInt() << currentOffset;
+	    currentOffset += 8;
+	  }
+	  currentOffset -= currentCodeSize;
+	  currentCode = codeBuffer & mask;
+	  codeCountTracker++;
+	  codeBuffer = codeBuffer >> currentCodeSize;
+	  code = codeTable[currentCode];
+	  insertIntoIndexStream(code, &indexStream);
+	  oldCode = code;
+	  first = false;
+	  continue;
+	}
+	while(currentOffset > currentCodeSize) {
+	  currentOffset -= currentCodeSize;
+	  currentCode = codeBuffer & mask;
+	  codeCountTracker++;
+	  codeBuffer = codeBuffer >> currentCodeSize;
+	  if(currentCode < codeTable.size()) {
+	    code = codeTable[currentCode];
+	    if(code == "EOI")
+	      break;
+	    if(code == "Clear") {
+	      // TODO
+	      continue;
+	    }
+	    std::string K;
+	    for(char c : code) {
+	      if(c == ' ') {
+		break;
+	      }
+	      K += c;
+	    }
+	    codeTable.push_back(oldCode + " " + K);
+	  }
+	  else {
+	    std::string K;
+	    for(char c : oldCode) {
+	      if(c == ' ') {
+		break;
+	      }
+	      K += c;
+	    }
+	    codeTable.push_back(oldCode + " " + K);
+	    code = oldCode + " " + K;
+	  }
+	  insertIntoIndexStream(code, &indexStream);
+	  oldCode = code;
 	  if(codeCountTracker == nextTarget) {
 	    currentCodeSize++;
 	    mask = (mask << 1) + 1;
-	    nextTarget = pow(2, currentCodeSize) - 1;
+	    nextTarget = (2 << (currentCodeSize - 1)) - 1;
 	  }
 	}
-      }
-    }
-
-    vector<int> indexStream;
-    vector<string>* codeTable = new vector<string>(pow(2, LZW));
-    for(int i = 0; i < codeTable->size(); i++) {
-      (*codeTable)[i] = to_string(i);
-    }
-    codeTable->push_back("Clear");
-    codeTable->push_back("EOI");
-    insertIntoIndexStream((*codeTable)[codeStream[1]], &indexStream);
-    for(int i = 2; i < codeStream.size(); i++) {
-      int code = codeStream[i];
-      int codeM1 = codeStream[i-1];
-      if(code < codeTable->size()) {
-        if((*codeTable)[code] == "EOI")
+	if(code == "EOI")
 	  break;
-	if((*codeTable)[code] == "Clear") {
-	  //TODO
-	}
-	insertIntoIndexStream((*codeTable)[code], &indexStream);
-	char K = (*codeTable)[code][0];
-	codeTable->push_back((*codeTable)[codeM1] + K);
       }
-      else {
-	char K = (*codeTable)[codeM1][0];
-	insertIntoIndexStream((*codeTable)[codeM1] + K, &indexStream);
-	codeTable->push_back((*codeTable)[codeM1] + K);
-      }
-    }
-    delete codeTable;
-    
-    for(int i = imageTop; i < imageHeight; i++) {
-      for(int j = imageLeft; j < imageWidth; j++) {
-	pixels[i][j] = indexStream[i * imageWidth + j];
-      }
+      if(code == "EOI")
+	break;
     }
 
-    for(int i = 0; i < canvasHeight; i++) {
-      for(int j = 0; j < canvasWidth; j++) {
-	//cout << pixels[i][j] << " ";
-      }
-      //cout << endl;
+    for(int i = 0; i < indexStream.size(); i++) {
+      uint x = imageTop + i / imageWidth;
+      uint y = imageLeft + i % imageWidth;
+      pixels[x][y] = indexStream[i];
     }
+
+    std::string* currentFrame = new std::string();
+    if(pixelsPerPixel != 1) {
+      uint cutLeft = (canvasWidth - canvasWidth / pixelsPerPixel * pixelsPerPixel) / 2;
+      uint cutRight = canvasWidth - (canvasWidth / pixelsPerPixel * pixelsPerPixel);
+      cutRight = (cutRight % 2 == 0) ? cutRight / 2 : cutRight / 2 + 1;
+      uint cutTop = (canvasHeight - canvasHeight / pixelsPerPixel * pixelsPerPixel) / 2;
+      uint cutBot = canvasHeight - (canvasHeight / pixelsPerPixel * pixelsPerPixel);
+      cutBot = (cutBot % 2 == 0) ? cutBot / 2 : cutBot / 2 + 1;
+      for(int i = cutTop; i < canvasHeight - cutBot; i += pixelsPerPixel) {
+	for(int j = cutLeft; j < canvasWidth - cutRight; j += pixelsPerPixel) {
+	  std::unordered_map<int, int> frequencyChart;
+	  uint maxFrequency = 0;
+	  uint mostFrequentIndex = -1;
+	  for(int ii = i; ii < i + pixelsPerPixel; ii++) {
+	    for(int jj = j; jj < j + pixelsPerPixel; jj++) {
+	      if(frequencyChart.find(pixels[ii][jj]) != frequencyChart.end())
+		frequencyChart[pixels[ii][jj]]++;
+	      else
+		frequencyChart[pixels[ii][jj]] = 1;
+	      uint frequency = frequencyChart[pixels[ii][jj]];
+	      if(frequency > maxFrequency) {
+		maxFrequency = frequency;
+		mostFrequentIndex = pixels[ii][jj];
+	      }
+	    }
+	  }
+	  if(mostFrequentIndex == graphicControlExtension->transparentColorIndex && graphicControlExtension->transparentColorFlag) {
+	    *currentFrame += "  ";
+	  }
+	  else {
+	    std::string ANSI = colorToANSI(&(GCT[mostFrequentIndex]));
+	    *currentFrame += ANSI + ANSI;
+	  }
+	}
+	*currentFrame += "\n";
+      }
+    }
+    else {
+      for(int i = 0; i < canvasHeight; i++) {
+	for(int j = 0; j < canvasWidth; j++) {
+	  if(pixels[i][j] == graphicControlExtension->transparentColorIndex) {
+	    *currentFrame += "  ";
+	  }
+	  else {
+	    std::string s = colorToANSI(&(GCT[pixels[i][j]]));
+	    *currentFrame += s + s;
+	  }
+	}	
+	*currentFrame += "\n";
+      }
+    }
+    *currentFrame += "\033[0m";
+    frames.push_back(currentFrame);
     
     skipBytes(1);
   }
   
-  vector<string*> nothing;
-  return nothing;
+  return frames;
 }
