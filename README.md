@@ -3,7 +3,7 @@ A Linux C++ program built to render small ASCII animations on a terminal.
 Built by Ian Harvey.
 
 ## Building
-Run the make command in the root folder of the project. Your program will be generated in the root folder.
+Run the `make` command in the root folder of the project. Your program will be generated in the root folder. To clean up the directory, run the `make clean` command.
 
 ## Supported File Types
 Currently there is only one supported File type. If I chose to add more, you will see them show up here:
