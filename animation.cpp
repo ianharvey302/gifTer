@@ -29,6 +29,7 @@ void animation::play() {
   std::cin.clear();
   while(!kill) {
     std::cout << *(frames[frameNumber]) << std::endl;
+    std::cout << "\033[1;31mPress (\u23CE) to terminate the animation\033[0m" << std::endl;
     usleep(durations[frameNumber] * 10000);
     frameNumber = (frameNumber + 1) % frames.size();
     system("clear");
