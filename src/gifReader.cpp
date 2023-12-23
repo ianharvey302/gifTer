@@ -144,6 +144,14 @@ std::vector<std::string*> gifReader::generateFrames(uint pixelsPerPixel) {
 	  graphicControlExtension->transparentColorIndex = readOneByteInt();
 	  killIfNotValue(0x00);
 	  switch(graphicControlExtension->disposalMethod) {
+	    case 0: {
+	      for(int i = 0; i < canvasHeight; i++) {
+		for(int j = 0; j < canvasWidth; j++) {
+		  pixels[i][j] = backgroundColorIndex;
+		}
+	      }
+	      break;
+	    }
 	    case 1: {
 	      // DoNothing
 	      break;
@@ -350,7 +358,12 @@ std::vector<std::string*> gifReader::generateFrames(uint pixelsPerPixel) {
 	    }
 	  }
 	  if(mostFrequentIndex == graphicControlExtension->transparentColorIndex && graphicControlExtension->transparentColorFlag) {
-	    *currentFrame += "  ";
+	    if(graphicControlExtension->disposalMethod == 2 && backgroundColorIndex != graphicControlExtension->transparentColorIndex) {
+	      *currentFrame += colorToANSI(&(GCT[backgroundColorIndex]));
+	    }
+	    else {
+	      *currentFrame += "  ";
+	    }
 	  }
 	  else {
 	    *currentFrame += colorToANSI(&(GCT[mostFrequentIndex]));
@@ -362,8 +375,13 @@ std::vector<std::string*> gifReader::generateFrames(uint pixelsPerPixel) {
     else {
       for(int i = 0; i < canvasHeight; i++) {
 	for(int j = 0; j < canvasWidth; j++) {
-	  if(pixels[i][j] == graphicControlExtension->transparentColorIndex) {
-	    *currentFrame += "  ";
+	  if(pixels[i][j] == graphicControlExtension->transparentColorIndex && graphicControlExtension->transparentColorFlag) {
+	    if(graphicControlExtension->disposalMethod == 2 && backgroundColorIndex != graphicControlExtension->transparentColorIndex) {
+	      *currentFrame += colorToANSI(&(GCT[backgroundColorIndex]));
+	    }
+	    else {
+	      *currentFrame += "  ";
+	    }
 	  }
 	  else {
 	    *currentFrame += colorToANSI(&(GCT[pixels[i][j]]));
