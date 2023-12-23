@@ -4,6 +4,7 @@
 #ifndef GIFREADER_H
 #define GIFREADER_H
 
+#include "definitions.h"
 #include <iostream>
 #include <string>
 #include <vector>

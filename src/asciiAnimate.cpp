@@ -1,12 +1,11 @@
 //Ian Harvey
 //ASCII-Animate main C++ file
 
+#include "animation.h"
+#include "gifReader.h"
 #include <unordered_map>
 #include <iostream>
 #include <string>
-#include "animation.h"
-#include "gifReader.h"
-
 
 
 std::unordered_map<std::string, int> supportedExtensions = { {".gif", 1} };

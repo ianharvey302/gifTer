@@ -353,8 +353,7 @@ std::vector<std::string*> gifReader::generateFrames(uint pixelsPerPixel) {
 	    *currentFrame += "  ";
 	  }
 	  else {
-	    std::string ANSI = colorToANSI(&(GCT[mostFrequentIndex]));
-	    *currentFrame += ANSI + ANSI;
+	    *currentFrame += colorToANSI(&(GCT[mostFrequentIndex]));
 	  }
 	}
 	*currentFrame += "\n";
@@ -367,8 +366,7 @@ std::vector<std::string*> gifReader::generateFrames(uint pixelsPerPixel) {
 	    *currentFrame += "  ";
 	  }
 	  else {
-	    std::string s = colorToANSI(&(GCT[pixels[i][j]]));
-	    *currentFrame += s + s;
+	    *currentFrame += colorToANSI(&(GCT[pixels[i][j]]));
 	  }
 	}	
 	*currentFrame += "\n";

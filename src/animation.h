@@ -4,6 +4,7 @@
 #ifndef ANIMATION_H
 #define ANIMATION_H
 
+#include "definitions.h"
 #include <iostream>
 #include <string>
 #include <vector>
