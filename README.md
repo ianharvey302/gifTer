@@ -37,4 +37,4 @@ Terminal Detection can be tricky (I think... Idk I didn't bother :/) so there is
 
 
 ## Known Issues
-Unfortunately, as I have begun testing this program on different files, I have come to notice some major issues (Segmentation faults, etc.) with certain files. I have not yet taken a look into and debug what might be causing these issues, but intend to do so in the future. Unfortunately, for now, that means that certain files do not produce their expected output.
+Unfortunately, as I have begun testing this program on different files, I have come to notice some major issues (Segmentation faults, etc.) with certain files. I have not yet taken a look into and debugged what might be causing these issues, but intend to do so in the future. Unfortunately, for now, that means that certain files do not produce their expected output.
