@@ -1,4 +1,4 @@
-# gifTer Animations
+# gifTer
 A Linux C++ program built to render small ASCII animations on a terminal.
 Built by Ian Harvey.
 
